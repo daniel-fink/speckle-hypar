@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <Title>SpeckleHypar</Title>
+        <Description>Converter for Hypar's Elements</Description>
+        <TargetExt>.dll</TargetExt>
+        <PackageId>SpeckleHypar</PackageId>
+        <PackageTags>$(PackageTags) objects converter hypar</PackageTags>
+        <RootNamespace>SpeckleHypar</RootNamespace>
+        <CopyToKitFolder>true</CopyToKitFolder>
+        <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Hypar.Elements" Version="2.1.0" />
+      <PackageReference Include="Speckle.Objects" Version="2.18.0" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <TimeStamp>$([System.DateTime]::Now.ToString("yyMMdd.hmmsst"))</TimeStamp>
+        <VersionPrefix>0.0.1</VersionPrefix>
+        <VersionSuffix>build-$(TimeStamp)</VersionSuffix>
+    </PropertyGroup>
+
+    <Target Name="NugetPackAutoVersioning" AfterTargets="Build">
+        <Exec Command="dotnet pack -p:PackageVersion=$(Version) -o '..\package\' --no-build --configuration $(Configuration)" />
+    </Target>
+
+</Project>

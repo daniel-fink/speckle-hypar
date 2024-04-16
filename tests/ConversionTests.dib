@@ -1,0 +1,120 @@
+#!meta
+
+{"custom":{"cells":[],"metadata":{"kernelspec":{"display_name":".NET (C#)","language":"C#","name":".net-csharp"},"language_info":{"file_extension":".cs","mimetype":"text/x-csharp","name":"polyglot-notebook","pygments_lexer":"csharp","version":"12.0"},"polyglot_notebook":{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}},"nbformat":4,"nbformat_minor":2},"indentAmount":" ","kernelInfo":{"defaultKernelName":null,"items":[{"name":"csharp","languageName":"C#","aliases":["c#","cs"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"html","languageName":"HTML"},{"name":"sql","languageName":"SQL"},{"name":"kql","languageName":"KQL"},{"name":"mermaid","languageName":"Mermaid"},{"name":"http","languageName":"HTTP"},{"name":"value"}]}}
+
+#!markdown
+
+# Interactive Tests for Format Conversions
+
+#!markdown
+
+## Speckle Conversion
+
+#!csharp
+
+#r "nuget: dotenv.net, *-*"
+
+#r "nuget: Speckle.Core, *-*"
+#r "nuget: Speckle.Objects, *-*"
+#r "nuget: Hypar.Elements, *-*"
+
+#!csharp
+
+#i "nuget:/Volumes/Data/Projects/SpeckleHypar/package"
+#r "nuget: SpeckleHypar, *-*"
+
+#!csharp
+
+#!import Api.Speckle.dib
+
+#!csharp
+
+using Objects;
+using Speckle;
+using Speckle.Core.Models.Extensions;
+
+using Elements;
+using SpeckleHypar;
+
+#!csharp
+
+using dotenv.net;
+DotEnv.Load();
+
+#!csharp
+
+var speckle = new SpeckleApi(DotEnv.Read()["SPECKLE_TOKEN"]);
+var root = speckle.GetCommit("c0f66c35e3");
+root
+
+#!csharp
+
+var prop = (Speckle.Core.Models.Base)root["@property"];
+var trunk = prop["@{0}"];
+var trunks = (IList)trunk;
+var branch = (Speckle.Core.Models.Base)trunks[0];
+var relationships = (IList)branch["relationships"];
+var relationship = (Speckle.Core.Models.Base)relationships[0];
+var target = (Speckle.Core.Models.Base)relationship["target"];
+target["speckle_type"]
+
+#!csharp
+
+var items = root.Flatten();
+var buildingAhotel = items.First(item => item.id == "ef629b7b125e750815bb25d0e209b675");
+buildingAhotel["name"]
+
+#!csharp
+
+buildingAhotel.GetDynamicMemberNames();
+buildingAhotel["speckle_type"]
+
+#!markdown
+
+The Speckle Brep
+
+#!csharp
+
+var brep = (Objects.Geometry.Brep)items.First(item => item.id == "0dd7b4e3bf84de205add9ed0301a4e37");
+Console.WriteLine("Speckle Type: " + brep["speckle_type"]);
+Console.WriteLine("Volume: " + brep.volume);
+Console.WriteLine("Faces Count: " + brep.Faces.Count);
+
+#!markdown
+
+Converting the Speckle Brep to a Solid
+
+#!csharp
+
+var solid = brep.FromSpeckle();
+Console.WriteLine("Solid's Mesh Volume: " + solid.ToMesh().Volume());
+Console.WriteLine("Solid's Faces Count: " + solid.Faces.Count);
+
+#!markdown
+
+Get all the (Outer) edges of the Solid to be able to go through them individually...
+
+#!csharp
+
+var net = solid.Faces.Select(face => new Polygon(face.Value.Outer.Edges.Select(edge => edge.Vertex.Point).ToList())).ToList();
+
+#!csharp
+
+var material = new Material();
+material.Color = new Color("Red");
+
+var model = new Elements.Model();
+model.AddElement(new Panel(net[0], material));
+model.AddElement(new Panel(net[1], material));
+model.AddElement(new Panel(net[2], material));
+model
+
+#!csharp
+
+var panel4 = new Panel(net[3], material);
+panel4
+
+#!csharp
+
+model.AddElement(panel4);
+model.ToJson()

@@ -1,0 +1,89 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!csharp
+
+// #r "nuget: Speckle.Core, *-*"
+// #r "nuget: Speckle.Objects, *-*"
+
+#!csharp
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using Speckle.Core.Api;
+using Speckle.Core.Models;
+using Speckle.Core.Transports;
+using Speckle.Core.Credentials;
+using Speckle.Core.Models.Extensions;
+using Speckle.Core.Logging;
+
+#!csharp
+
+public class SpeckleApi
+{
+    public Client Client { get; }
+    public Account Account { get; }
+
+    public SpeckleApi(string token, string host = "https://speckle.xyz")
+    {
+        this.Account = new Account();
+        this.Account.token = token;
+        this.Account.serverInfo = new ServerInfo{ url = "https://speckle.xyz/" };
+
+        this.Client = new Client(this.Account);
+    }
+
+    public string? GetLatestCommitId(string streamId, string? branchName = null)
+    {
+        if (branchName is null) branchName = "main";
+        var branch = this.Client.BranchGet(streamId, branchName, 1).Result;
+        return branch?.commits?.items?[0]?.id;
+    }
+
+    public Base GetCommit(string streamId, string? commitId = null)
+    {
+        if (commitId is null) commitId = this.GetLatestCommitId(streamId);
+        if (commitId is null) throw new Exception("Error: No commits found.");
+        var transport = new ServerTransport(this.Account, streamId);
+        var commit = this.Client.CommitGet(streamId, commitId).Result;
+
+        SpeckleLog.Logger.Information("Objects Kit found in {ObjectsKitFolder}", Objects.ObjectsKit.ObjectsFolder); // To make sure Objects Kit is loaded.
+        return Operations.Receive(commit?.referencedObject, transport).Result;
+    }
+}
+
+#!csharp
+
+public static class Extensions
+{
+    public static IEnumerable<Base>? ToBases(object obj, BaseExtensions.BaseRecursionBreaker? baseRecursionBreaker = null)
+    {
+        var result = new List<Base>();
+
+        if (obj is Base baseObj)
+        {
+            result = baseObj.Flatten(baseRecursionBreaker).ToList();
+        }
+
+        else if (obj is IEnumerable<object> list)
+        {
+            foreach (var item in list)
+            {
+                if (item is Base baseItem) result.Add(baseItem);
+            }
+        }
+        else if (obj is IDictionary dict)
+        {
+            foreach (var value in dict.Values)
+            {
+                if (value is Base baseValue) result.Add(baseValue);
+            }
+        }
+        else return null;
+
+        return result;
+    }
+}
