@@ -1,2 +1,2 @@
-# specklehypar
-A Speckle Converter for Hypar's Elements
+# Speckle-Hypar
+A Speckle Connector to Hypar
