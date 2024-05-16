@@ -10,6 +10,7 @@
         <RootNamespace>SpeckleHypar</RootNamespace>
         <CopyToKitFolder>true</CopyToKitFolder>
         <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,6 +25,11 @@
     </PropertyGroup>
 
     <Target Name="NugetPackAutoVersioning" AfterTargets="Build">
+            <ItemGroup>
+                <FilesToDelete Include="..\package\"/>
+            </ItemGroup>
+            <Delete Files="@(FilesToDelete)" />
+            <RemoveDir Directories="..\package\" />
         <Exec Command="dotnet pack -p:PackageVersion=$(Version) -o '..\package\' --no-build --configuration $(Configuration)" />
     </Target>
 

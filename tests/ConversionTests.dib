@@ -17,10 +17,11 @@
 #r "nuget: Speckle.Core, *-*"
 #r "nuget: Speckle.Objects, *-*"
 #r "nuget: Hypar.Elements, *-*"
+#!import extension.dib
 
 #!csharp
 
-#i "nuget:/Volumes/Data/Projects/SpeckleHypar/package" //NOTE: Replace this with the path to the package folder on your machine
+#i "nuget:/Volumes/Data/Projects/SpeckleHypar/package"
 #r "nuget: SpeckleHypar, *-*"
 
 #!csharp
@@ -87,34 +88,9 @@ Converting the Speckle Brep to a Solid
 #!csharp
 
 var solid = brep.FromSpeckle();
-Console.WriteLine("Solid's Mesh Volume: " + solid.ToMesh().Volume());
-Console.WriteLine("Solid's Faces Count: " + solid.Faces.Count);
-
-#!markdown
-
-Get all the (Outer) edges of the Solid to be able to go through them individually...
+solid
 
 #!csharp
 
-var net = solid.Faces.Select(face => new Polygon(face.Value.Outer.Edges.Select(edge => edge.Vertex.Point).ToList())).ToList();
-
-#!csharp
-
-var material = new Material();
-material.Color = new Color("Red");
-
-var model = new Elements.Model();
-model.AddElement(new Panel(net[0], material));
-model.AddElement(new Panel(net[1], material));
-model.AddElement(new Panel(net[2], material));
-model
-
-#!csharp
-
-var panel4 = new Panel(net[3], material);
-panel4
-
-#!csharp
-
-model.AddElement(panel4);
-model.ToJson()
+Console.WriteLine("Solid's Mesh Volume: " + solid.Solid.ToMesh().Volume());
+Console.WriteLine("Solid's Faces Count: " + solid.Solid.Faces.Count);

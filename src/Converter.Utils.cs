@@ -1,24 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
+using Csg;
 
-using Objects.BuiltElements;
-using Objects.BuiltElements.Revit;
-using Objects.BuiltElements.Revit.Curve;
-using Objects.Geometry;
-using Objects.Other;
-using Objects.Primitive;
-using Objects.Structural.Geometry;
-
-using Speckle.Core.Kits;
-using Speckle.Core.Logging;
-using Speckle.Core.Models;
+// using Objects.BuiltElements;
+// using Objects.BuiltElements.Revit;
+// using Objects.BuiltElements.Revit.Curve;
+// using Objects.Geometry;
+// using Objects.Other;
+// using Objects.Primitive;
+// using Objects.Structural.Geometry;
+//
+// using Speckle.Core.Kits;
+// using Speckle.Core.Logging;
+// using Speckle.Core.Models;
 
 using Elements;
 using Elements.Geometry;
-using Polyline = Elements.Geometry.Polyline;
 
 
 namespace SpeckleHypar;
@@ -84,13 +85,13 @@ public static class GeometryProcessing
                 {
                     if (next is Elements.Geometry.Line line) segments.Add(line.Reversed());
                     else if (next is Elements.Geometry.Arc arc) segments.Add(arc.Reversed());
-                    else throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
+                    // else throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
                 }
                 else if (segments.First().Start.IsAlmostEqualTo(next.Start))
                 {
                     if (next is Elements.Geometry.Line line) segments.Insert(0, line.Reversed());
                     else if (next is Elements.Geometry.Arc arc) segments.Insert(0, arc.Reversed());
-                    else throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
+                    // else throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
                 }
                 else if (segments.First().Start.IsAlmostEqualTo(next.End))
                 {
@@ -102,51 +103,99 @@ public static class GeometryProcessing
                     i++;
                 }
             }
+            var polycurve = new Elements.Geometry.IndexedPolycurve(segments);
+
             polycurves.Add(new IndexedPolycurve(segments));
         }
         return polycurves;
     }
+
+    /// <summary>
+    /// Converts a Solid's Face to a Profile. NOTE: Assumes the face is planar.
+    /// </summary>
+    /// <param name="face"></param>
+    /// <returns></returns>
+    public static Elements.Geometry.Profile ToProfile(this Elements.Geometry.Solids.Face face)
+    {
+        var outer = face.Outer.ToPolygon();
+        var inner = face.Inner?.Select(loop => loop.ToPolygon()).ToList() ?? new List<Elements.Geometry.Polygon>();
+        return new Elements.Geometry.Profile(outer, inner);
+    }
+
+    public static bool FindEqual(this Elements.Geometry.Line line, IEnumerable<Elements.Geometry.Line> lines, out IList<Elements.Geometry.Line> equals, bool strictly = false)
+    {
+        equals = new List<Elements.Geometry.Line>();
+        foreach (var other in lines)
+        {
+            if (line.IsAlmostEqualTo(other, strictly)) equals.Add(other);
+        }
+        return (equals.Count > 0);
+    }
+
+    public static bool GetAdjacent(this Elements.Geometry.Polygon polygon, IEnumerable<Elements.Geometry.Polygon> polygons, out IList<Elements.Geometry.Polygon> adjacent)
+    {
+        adjacent = new List<Elements.Geometry.Polygon>();
+        foreach (var line in polygon.OfType<Elements.Geometry.Line>())
+        {
+            var adjacentLines = new List<Elements.Geometry.Polygon>();
+            foreach (var other in polygons)
+            {
+                if (line.FindEqual(other.OfType<Elements.Geometry.Line>(), out var equals, false))
+                {
+                    adjacentLines.Add(other);
+                }
+            }
+            if (adjacentLines.Count > 1) throw new Exception("Error: Edge has more than one adjacent polygon.");
+            else if (adjacentLines.Count == 1) adjacent.Add(adjacentLines.First());
+        }
+        return (adjacent.Count > 0);
+    }
+
+    public static bool GetAdjacent(this Elements.Geometry.Profile profile, IEnumerable<Elements.Geometry.Profile> profiles, out IList<Elements.Geometry.Profile> adjacent)
+    {
+        adjacent = new List<Elements.Geometry.Profile>();
+        foreach (var other in profiles)
+        {
+            if (other.Equals(profile)) continue;
+
+            var otherPolygons = other.Voids.Prepend(other.Perimeter);
+            if (profile.Perimeter.GetAdjacent(otherPolygons, out var adjacentsToPerimeter))
+            {
+                adjacent.Add(other);
+            }
+            else if (profile.Voids.Any(hole => hole.GetAdjacent(otherPolygons, out var adjacentsToHole)))
+            {
+                adjacent.Add(other);
+            }
+        }
+        return (adjacent.Count != 0);
+    }
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="polygon"></param>
+    /// <param name="size"></param>
+    /// <param name="color"></param>
+    /// <returns></returns>
+    public static ModelArrows NormalArrow(this Elements.Geometry.Polygon polygon, double size = 1, Color? color = null)
+    {
+        color = color ?? new Color("Red");
+        var vectors = new List<(Vector3 location, Vector3 direction, double magnitude, Color? color)>();
+        var centroid = polygon.Centroid();
+        var normal = polygon.Normal();
+
+        vectors.Add((centroid, normal, size, color));
+        return new ModelArrows(vectors, false, true);
+    }
+
+    public static ModelText CentroidText(this Elements.Geometry.Polygon polygon, string text, FontSize size = FontSize.PT36, Color? color = null, double scale = 1)
+    {
+        color = color ?? new Color("Black");
+        var texts = new List<(Vector3 location, Vector3 facingDirection, Vector3 lineDirection, string text, Color? color)>();
+        var centroid = polygon.Centroid();
+
+        texts.Add((centroid, Vector3.ZAxis, Vector3.XAxis, text, color));
+        return new ModelText(texts, size, scale);
+    }
 }
-//
-// public static class UnitsConversion
-// {
-//     public static string ToSpeckle(this Elements.Units.LengthUnit lengthUnit)
-//     {
-//         return lengthUnit switch
-//         {
-//             Elements.Units.LengthUnit.Millimeter => "mm",
-//             Elements.Units.LengthUnit.Centimeter => "cm",
-//             Elements.Units.LengthUnit.Meter => "m",
-//             Elements.Units.LengthUnit.Kilometer => "km",
-//
-//             Elements.Units.LengthUnit.Inch => "in",
-//             Elements.Units.LengthUnit.Foot => "ft",
-//             _ => "m"
-//         };
-//     }
-//
-//     public static Elements.Units.LengthUnit ToNative(this string units)
-//     {
-//         return units switch
-//         {
-//             "mm" => Elements.Units.LengthUnit.Millimeter,
-//             "cm" => Elements.Units.LengthUnit.Centimeter,
-//             "m" => Elements.Units.LengthUnit.Meter,
-//             "km" => Elements.Units.LengthUnit.Kilometer,
-//
-//             "in" => Elements.Units.LengthUnit.Inch,
-//             "ft" => Elements.Units.LengthUnit.Foot,
-//             _ => Elements.Units.LengthUnit.Meter
-//         };
-//     }
-// }
-// public partial class ConverterHypar
-// {
-//     private double ScaleToNative(double value, string units)
-//     {
-//         var f = Speckle.Core.Kits.Units.GetConversionFactor(units, this.ModelUnits.ToSpeckle());
-//         return value * f;
-//     }
-// }
-//
-//

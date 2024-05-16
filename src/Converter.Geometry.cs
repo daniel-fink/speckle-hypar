@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 // using System.Drawing;
 using System.Linq;
@@ -16,13 +17,14 @@ using Speckle.Core.Models.Extensions;
 
 using Elements;
 using Elements.Geometry;
+using Elements.Geometry.Solids;
 
 namespace SpeckleHypar;
 
 public static class VectorConversion
 {
     /// <summary>
-    /// Converts a Speckle Vector to Hypar. 
+    /// Converts a Speckle Vector to Elements. 
     /// </summary>
     /// <param name="vector"></param>
     /// <returns></returns>
@@ -101,7 +103,7 @@ public static class PointConversion
 public static class PlaneConversion
 {
     /// <summary>
-    /// Converts a Hypar Plane to Speckle. 
+    /// Converts an Elements Plane to Speckle. 
     /// </summary>
     /// <param name="plane"></param>
     /// <returns></returns>
@@ -116,7 +118,7 @@ public static class PlaneConversion
     }
 
     /// <summary>
-    /// Converts a Hypar Transform to Speckle. 
+    /// Converts an Elements Transform to Speckle. 
     /// </summary>
     /// <param name="transform"></param>
     /// <returns></returns>
@@ -156,7 +158,7 @@ public static class PlaneConversion
 public static class LineConversion
 {
     /// <summary>
-    /// Converts a Speckle Line to Hypar. 
+    /// Converts a Speckle Line to Elements. 
     /// </summary>
     /// <param name="line"></param>
     /// <returns></returns>
@@ -166,7 +168,7 @@ public static class LineConversion
     }
 
     /// <summary>
-    /// Converts a Hypar Line to Speckle.
+    /// Converts an Elements Line to Speckle.
     /// </summary>
     /// <param name="line"></param>
     /// <returns></returns>
@@ -179,7 +181,7 @@ public static class LineConversion
 public static class PolylineConversion
 {
     /// <summary>
-    /// Converts a Speckle Polyline to Hypar. Also returns a Polygon if the polyline is closed
+    /// Converts a Speckle Polyline to Elements. Also returns a Polygon if the polyline is closed
     /// </summary>
     /// <param name="polyline"></param>
     /// <returns></returns>
@@ -206,15 +208,15 @@ public static class PolylineConversion
     }
 
     /// <summary>
-    /// Converts a Speckle Polyline to either a specified Hypar Polygon and/or Hypar Polyline.
+    /// Converts a Speckle Polyline to either a specified Elements Polygon and/or Elements Polyline.
     /// </summary>
     /// <param name="polyline"></param>
     /// <param name="polygon"></param>
-    /// <param name="hyparPolyline"></param>
+    /// <param name="elementsPolyline"></param>
     /// <returns></returns>
-    public static bool TryGetPolygon(this Objects.Geometry.Polyline polyline, out Elements.Geometry.Polygon? polygon, out Elements.Geometry.Polyline hyparPolyline)
+    public static bool TryGetPolygon(this Objects.Geometry.Polyline polyline, out Elements.Geometry.Polygon? polygon, out Elements.Geometry.Polyline elementsPolyline)
     {
-        hyparPolyline = polyline.FromSpeckle();
+        elementsPolyline = polyline.FromSpeckle();
         if (polyline.closed)
         {
             polygon = new Elements.Geometry.Polygon(polyline.value.FromSpeckle().ToList());
@@ -241,7 +243,7 @@ public static class PolylineConversion
 public static class ArcConversion
 {
     /// <summary>
-    /// Converts a Speckle Circle to Hypar. 
+    /// Converts a Speckle Circle to Elements. 
     /// </summary>
     /// <param name="circle"></param>
     /// <returns></returns>
@@ -257,7 +259,7 @@ public static class ArcConversion
     }
 
     /// <summary>
-    /// Converts a Speckle Circle to Hypar. 
+    /// Converts a Speckle Circle to Elements. 
     /// </summary>
     /// <param name="circle"></param>
     /// <returns></returns>
@@ -269,7 +271,7 @@ public static class ArcConversion
     }
 
     /// <summary>
-    /// Converts a Hypar Arc to Speckle. 
+    /// Converts an Elements Arc to Speckle. 
     /// </summary>
     /// <param name="arc"></param>
     /// <returns></returns>
@@ -291,7 +293,7 @@ public static class ArcConversion
     }
 
     /// <summary>
-    /// Converts a Speckle Arc to Hypar. 
+    /// Converts a Speckle Arc to Elements. 
     /// </summary>
     /// <param name="arc"></param>
     /// <returns></returns>
@@ -314,7 +316,7 @@ public static class ArcConversion
 public static class PolyCurveConversion
 {
     /// <summary>
-    /// Converts a Speckle PolyCurve to Hypar.
+    /// Converts a Speckle PolyCurve to Elements.
     /// </summary>
     /// <param name="polyCurve"></param>
     /// <returns></returns>
@@ -330,7 +332,7 @@ public static class PolyCurveConversion
     }
 
     /// <summary>
-    /// Converts a Hypar PolyCurve to Speckle.
+    /// Converts an Elements PolyCurve to Speckle.
     /// </summary>
     /// <param name="polyCurve"></param>
     /// <returns></returns>
@@ -342,27 +344,10 @@ public static class PolyCurveConversion
     }
 }
 
-public static class LoopConversion
-{
-    public static Elements.Geometry.Polygon FromSpeckle(this Objects.Geometry.BrepLoop loop)
-    {
-        var trimCurves = loop.Trims
-            .Select(trim => loop.Brep.Edges[trim.EdgeIndex])
-            .Select(edge => loop.Brep.Curve3D[edge.Curve3dIndex])
-            .Select(curve => curve.FromSpeckleICurve())
-            .ToList();
-
-        var sortedCurves = trimCurves.Join();
-
-        if (sortedCurves.Count > 1) throw new Exception("Error: Loop has more than one curve.");
-        return sortedCurves.First().ToPolygon();
-    }
-}
-
 public static class BoundedCurveConversion
 {
     /// <summary>
-    /// Converts a Speckle Geometry that could be BoundedCurves to Hypar.
+    /// Converts a Speckle Geometry that could be BoundedCurves to Elements.
     /// </summary>
     /// <param name="curve"></param>
     /// <returns></returns>
@@ -390,7 +375,7 @@ public static class BoundedCurveConversion
     }
 
     /// <summary>
-    /// Converts a Hypar Geometry implementing ICurve to Speckle.
+    /// Converts an Elements Geometry implementing ICurve to Speckle.
     /// </summary>
     /// <param name="curve"></param>
     /// <returns></returns>
@@ -419,7 +404,7 @@ public static class BoundedCurveConversion
 public static class BoxConversion
 {
     /// <summary>
-    /// Converts a Speckle Box to Hypar.
+    /// Converts a Speckle Box to Elements.
     /// </summary>
     /// <param name="box"></param>
     /// <returns></returns>
@@ -441,7 +426,7 @@ public static class BoxConversion
     }
 
     /// <summary>
-    /// Converts a Hypar Box to Speckle.
+    /// Converts an Elements Box to Speckle.
     /// </summary>
     /// <param name="box"></param>
     /// <returns></returns>
@@ -462,7 +447,7 @@ public static class BoxConversion
 public static class MeshConversion
 {
     /// <summary>
-    /// Converts a Speckle Mesh to Hypar.
+    /// Converts a Speckle Mesh to Elements.
     /// </summary>
     /// <param name="mesh"></param>
     /// <returns></returns>
@@ -483,9 +468,9 @@ public static class MeshConversion
             if (index == 3)
             {
                 // triangle
-                var a = new Vertex(vertices[mesh.faces[i + 1]]);
-                var b = new Vertex(vertices[mesh.faces[i + 2]]);
-                var c = new Vertex(vertices[mesh.faces[i + 3]]);
+                var a = new Elements.Geometry.Vertex(vertices[mesh.faces[i + 1]]);
+                var b = new Elements.Geometry.Vertex(vertices[mesh.faces[i + 2]]);
+                var c = new Elements.Geometry.Vertex(vertices[mesh.faces[i + 3]]);
                 triangles.Add(new Triangle(a, b, c));
             }
             else
@@ -495,9 +480,9 @@ public static class MeshConversion
                 var faceIndices = new List<int>(triangulateds.Count);
                 for (int t = 0; t < triangulateds.Count; t += 3)
                 {
-                    var a = new Vertex(vertices[triangulateds[t]]);
-                    var b = new Vertex(vertices[triangulateds[t + 1]]);
-                    var c = new Vertex(vertices[triangulateds[t + 2]]);
+                    var a = new Elements.Geometry.Vertex(vertices[triangulateds[t]]);
+                    var b = new Elements.Geometry.Vertex(vertices[triangulateds[t + 1]]);
+                    var c = new Elements.Geometry.Vertex(vertices[triangulateds[t + 2]]);
                     triangles.Add(new Triangle(a, b, c));
                 }
             }
@@ -505,11 +490,11 @@ public static class MeshConversion
             i += index + 1;
         }
 
-        return new Elements.Geometry.Mesh(vertices.Select(vector => new Vertex(vector)).ToList(), triangles);
+        return new Elements.Geometry.Mesh(vertices.Select(vector => new Elements.Geometry.Vertex(vector)).ToList(), triangles);
     }
 
     /// <summary>
-    /// Converts a Hypar Mesh to Speckle.
+    /// Converts an Elements Mesh to Speckle.
     /// </summary>
     /// <param name="mesh"></param>
     /// <returns></returns>
@@ -532,39 +517,93 @@ public static class MeshConversion
 public static class BrepConversion
 {
     /// <summary>
-    /// Converts a Speckle Brep to Hypar. Note: Currently assumes all faces are planar
+    /// Converts a Speckle Loop to Elements. Note: Polygonizes all curves.
+    /// </summary>
+    /// <param name="loop"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    public static Elements.Geometry.Polygon FromSpeckle(this Objects.Geometry.BrepLoop loop)
+    {
+        var trimCurves = loop.Trims
+            .Select(trim => loop.Brep.Edges[trim.EdgeIndex])
+            .Select(edge => loop.Brep.Curve3D[edge.Curve3dIndex])
+            .Select(curve => curve.FromSpeckleICurve())
+            .ToList();
+
+        var sortedCurves = trimCurves.Join();
+
+        if (sortedCurves.Count > 1) throw new Exception("Error: Loop has more than one curve.");
+        return sortedCurves.First().ToPolygon();
+    }
+
+    internal static Elements.Geometry.Profile FromSpeckle(this Objects.Geometry.BrepFace face)
+    {
+        List<Polygon> innerLoops = null;
+        Polygon outerLoop = null;
+        foreach (var loop in face.Loops)
+        {
+            if (loop.Type == Objects.Geometry.BrepLoopType.Outer)
+            {
+                outerLoop = loop.FromSpeckle();
+            }
+            else if (loop.Type == Objects.Geometry.BrepLoopType.Inner)
+            {
+                if (innerLoops == null)
+                {
+                    innerLoops = new List<Polygon>();
+                }
+
+                var innerLoop = loop.FromSpeckle();
+                innerLoops.Add(innerLoop);
+            }
+        }
+        return new Elements.Geometry.Profile(outerLoop, innerLoops);
+    }
+
+    internal static IList<Elements.Geometry.Profile> OrientFaces(this IEnumerable<Objects.Geometry.BrepFace> faces)
+    {
+        var profiles = faces.Select(face => face.FromSpeckle()).ToImmutableList();
+        var orienteds = new List<Elements.Geometry.Profile>();
+
+        foreach (var profile in profiles)
+        {
+            var i = 0;
+            var ray = new Ray(profile.Perimeter.Centroid(), profile.Perimeter.Normal());
+            var others = profiles.Remove(profile);
+            foreach (var other in others)
+            {
+                ray.Intersects(other.Perimeter, out var point, out Elements.Geometry.Containment containment);
+                if (containment == Elements.Geometry.Containment.Inside) i++;
+            }
+
+            if (i % 2 != 0)
+            {
+                orienteds.Add(profile.Reversed());
+            }
+            else
+            {
+                orienteds.Add(profile);
+            }
+        }
+        return orienteds;
+    }
+
+
+
+    /// <summary>
+    /// Converts a Speckle Brep to an Elements Constructed Solid. Note: Currently assumes all faces are planar
     /// </summary>
     /// <param name="brep"></param>
     /// <returns></returns>
-    public static Elements.Geometry.Solids.Solid FromSpeckle(this Objects.Geometry.Brep brep)
+    public static Elements.Geometry.Solids.ConstructedSolid FromSpeckle(this Objects.Geometry.Brep brep)
     {
         var solid = new Elements.Geometry.Solids.Solid();
-
-        foreach (var face in brep.Faces)
+        foreach (var profile in brep.Faces.OrientFaces())
         {
-            // Console.WriteLine("Face Id: " + face.id);
-            List<Polygon> innerLoops = null;
-            Polygon outerLoop = null;
-            foreach (var loop in face.Loops)
-            {
-                // Console.WriteLine("Loop Id: " + loop.id);
-                if (loop.Type == Objects.Geometry.BrepLoopType.Outer)
-                {
-                    outerLoop = loop.FromSpeckle();
-                }
-                else if (loop.Type == Objects.Geometry.BrepLoopType.Inner)
-                {
-                    if (innerLoops == null)
-                    {
-                        innerLoops = new List<Polygon>();
-                    }
-
-                    var innerLoop = loop.FromSpeckle();
-                    innerLoops.Add(innerLoop);
-                }
-            }
+            var outerLoop = profile.Perimeter;
+            var innerLoops = profile.Voids;
             solid.AddFace(outerLoop, innerLoops, true);
         }
-        return solid;
+        return new Elements.Geometry.Solids.ConstructedSolid(solid);
     }
 }
