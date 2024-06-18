@@ -522,7 +522,7 @@ public static class BrepConversion
     /// <param name="loop"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public static Elements.Geometry.Polygon FromSpeckle(this Objects.Geometry.BrepLoop loop)
+    public static Elements.Geometry.Polygon? FromSpeckle(this Objects.Geometry.BrepLoop loop)
     {
         var trimCurves = loop.Trims
             .Select(trim => loop.Brep.Edges[trim.EdgeIndex])
@@ -530,13 +530,24 @@ public static class BrepConversion
             .Select(curve => curve.FromSpeckleICurve())
             .ToList();
 
-        var sortedCurves = trimCurves.Join();
+        trimCurves = trimCurves.OrderBy(curve => curve.Length()).ToList();
 
-        if (sortedCurves.Count > 1) throw new Exception("Error: Loop has more than one curve.");
-        return sortedCurves.First().ToPolygon();
+        if (trimCurves.JoinSegments(out var polyCurve))
+        {
+            try
+            {
+                return new Polygon(polyCurve.Vertices);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                return null;
+            }
+        }
+        else throw new Exception("Error: Loop could not be transformed into singular Polygon.");
     }
 
-    internal static Elements.Geometry.Profile FromSpeckle(this Objects.Geometry.BrepFace face)
+    public static Elements.Geometry.Profile FromSpeckle(this Objects.Geometry.BrepFace face)
     {
         List<Polygon> innerLoops = null;
         Polygon outerLoop = null;
@@ -560,7 +571,7 @@ public static class BrepConversion
         return new Elements.Geometry.Profile(outerLoop, innerLoops);
     }
 
-    internal static IList<Elements.Geometry.Profile> OrientFaces(this IEnumerable<Objects.Geometry.BrepFace> faces)
+    public static IList<Elements.Geometry.Profile> OrientFaces(this IEnumerable<Objects.Geometry.BrepFace> faces)
     {
         var profiles = faces.Select(face => face.FromSpeckle()).ToImmutableList();
         var orienteds = new List<Elements.Geometry.Profile>();
@@ -587,7 +598,6 @@ public static class BrepConversion
         }
         return orienteds;
     }
-
 
 
     /// <summary>

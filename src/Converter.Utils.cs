@@ -4,19 +4,7 @@ using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
-using Csg;
 
-// using Objects.BuiltElements;
-// using Objects.BuiltElements.Revit;
-// using Objects.BuiltElements.Revit.Curve;
-// using Objects.Geometry;
-// using Objects.Other;
-// using Objects.Primitive;
-// using Objects.Structural.Geometry;
-//
-// using Speckle.Core.Kits;
-// using Speckle.Core.Logging;
-// using Speckle.Core.Models;
 
 using Elements;
 using Elements.Geometry;
@@ -59,55 +47,193 @@ public static class GeometryProcessing
         return newList;
     }
 
-    internal static IList<Elements.Geometry.IndexedPolycurve> Join(this IList<Elements.Geometry.BoundedCurve> curves)
+    // /// <summary>
+    // /// Join a collection of arcs, lines, or polylines into polycurves.
+    // /// Note: de-duplicates any duplicate fragments.
+    // /// </summary>
+    // /// <param name="curves"></param>
+    // /// <returns></returns>
+    // /// <exception cref="NotImplementedException"></exception>
+    // internal static IList<Elements.Geometry.IndexedPolycurve> Join(this ICollection<Elements.Geometry.BoundedCurve> curves)
+    // {
+    //     if (curves.Count == 0) return new List<Elements.Geometry.IndexedPolycurve>();
+    //     var fragments = new List<Elements.Geometry.BoundedCurve>();
+    //     foreach (var curve in curves)
+    //     {
+    //         if (curve is Elements.Geometry.Line line)
+    //         {
+    //             if (!fragments.Any(f => f is Elements.Geometry.Line l && l.IsAlmostEqualTo(line, false)))
+    //                 fragments.Add(line);
+    //         }
+    //         else if (curve is Elements.Geometry.Arc arc)
+    //         {
+    //             if (!fragments.Any(f => f is Elements.Geometry.Arc a && a.Equals(arc)))
+    //                 fragments.Add(arc);
+    //         }
+    //         else if (curve is Elements.Geometry.Polyline polyline)
+    //         {
+    //             foreach (var segment in polyline.Segments())
+    //             {
+    //                 if (!fragments.Any(f => f is Elements.Geometry.Line l && l.IsAlmostEqualTo(segment, false)))
+    //                     fragments.Add(segment);
+    //             }
+    //         }
+    //         else
+    //         {
+    //             throw new NotImplementedException("Error: Can only sort Line and Arc curve types. Curve type encountered: " + curve.GetType());
+    //         }
+    //     }
+    //
+    //     foreach (var f in fragments)
+    //     {
+    //         Console.WriteLine("Fragment: " + f.ToString());
+    //     }
+    //
+    //     var polycurves = new List<Elements.Geometry.IndexedPolycurve>();
+    //     var queue = new Queue<Elements.Geometry.BoundedCurve>(fragments);
+    //
+    //     while (queue.Count > 0)
+    //     {
+    //         Console.WriteLine("Init While Loop Queue Count: " + queue.Count + " " + string.Join(", ", queue.Select(s => s.ToString())));
+    //         var current = queue.Dequeue();
+    //         Console.WriteLine("Dequeue Current: " + queue.Count + " " + string.Join(", ", queue.Select(s => s.ToString())));
+    //
+    //         var segments = new List<Elements.Geometry.BoundedCurve>() { current };
+    //
+    //         var i = 0;
+    //         while (i < queue.Count)
+    //         {
+    //             Console.WriteLine("Inner While Loop Queue Count: " + queue.Count + " " + string.Join(", ", queue.Select(s => s.ToString())));
+    //             Console.WriteLine("i: " + i);
+    //
+    //             if (!queue.TryDequeue(out var next)) continue;
+    //             if (segments.Last().End.IsAlmostEqualTo(next.Start))
+    //             {
+    //                 segments.Add(next);
+    //             }
+    //             else if (segments.Last().End.IsAlmostEqualTo(next.End))
+    //             {
+    //                 if (next is Elements.Geometry.Line line) segments.Add(line.Reversed());
+    //                 else if (next is Elements.Geometry.Arc arc) segments.Add(arc.Reversed());
+    //             }
+    //             else if (segments.First().Start.IsAlmostEqualTo(next.Start))
+    //             {
+    //                 if (next is Elements.Geometry.Line line) segments.Insert(0, line.Reversed());
+    //                 else if (next is Elements.Geometry.Arc arc) segments.Insert(0, arc.Reversed());
+    //             }
+    //             else if (segments.First().Start.IsAlmostEqualTo(next.End))
+    //             {
+    //                 segments.Insert(0, next);
+    //             }
+    //             else
+    //             {
+    //                 Console.WriteLine("Enqueue Next: " + next.ToString());
+    //                 queue.Enqueue(next);
+    //                 i++;
+    //             }
+    //         }
+    //         Console.WriteLine("Segments after sorting: " + segments.Count + " " + string.Join(", ", segments.Select(s => s.ToString())));
+    //         var polycurve = new Elements.Geometry.IndexedPolycurve(segments);
+    //         polycurves.Add(new IndexedPolycurve(segments));
+    //     }
+    //     return polycurves;
+    // }
+
+    public static string ToLongString(this Elements.Geometry.Vector3 vector3)
     {
-        if (curves.Count == 0) return new List<Elements.Geometry.IndexedPolycurve>();
-        if (!curves.All(curve => curve is Elements.Geometry.Line || curve is Elements.Geometry.Arc))
-            throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
+        return "X:" + vector3.X.ToString("F12") + ", Y:" + vector3.Y.ToString("F12") + ", Z:" + vector3.Z.ToString("F12");
+    }
 
-        var queue = new Queue<Elements.Geometry.BoundedCurve>(curves);
-        var polycurves = new List<Elements.Geometry.IndexedPolycurve>();
+    public static string ToLongString(this Elements.Geometry.BoundedCurve boundedCurve)
+    {
+        return boundedCurve.GetType().Name + " Start: " + boundedCurve.Start.ToLongString() + " End: " + boundedCurve.End.ToLongString();
+    }
 
-        while (queue.Count > 0)
+    internal static Elements.Geometry.Vector3 TolerancePoint(this Elements.Geometry.Vector3 vector3, double tolerance = Vector3.EPSILON)
+    {
+        var decimalPlaces = Convert.ToInt32(-Math.Log10(tolerance));
+        return new Elements.Geometry.Vector3(
+            Math.Round(vector3.X, decimalPlaces),
+            Math.Round(vector3.Y, decimalPlaces),
+            Math.Round(vector3.Z, decimalPlaces)
+            );
+    }
+
+    internal static bool JoinSegments(this ICollection<Elements.Geometry.BoundedCurve> segments, out Elements.Geometry.IndexedPolycurve polyCurve)
+    {
+        Console.WriteLine("----------\n Joining Segments...");
+        Console.WriteLine("Segments: \n" + string.Join("\n", segments.Select(segment => segment.ToLongString())));
+
+        if (segments.Any(segment => segment is not Line && segment is not Arc))
+            throw new NotImplementedException("Error: Can only join Line and Arc segment types.");
+
+        var nodes = new Dictionary<Elements.Geometry.Vector3, List<Elements.Geometry.BoundedCurve>>();
+        foreach (var segment in segments)
         {
-            var current = queue.Dequeue();
-            var segments = new List<Elements.Geometry.BoundedCurve>() { current };
+            if (nodes.ContainsKey(segment.Start.TolerancePoint())) nodes[segment.Start.TolerancePoint()].Add(segment);
+            else nodes.Add(segment.Start.TolerancePoint(), new List<Elements.Geometry.BoundedCurve> { segment });
 
-            var i = 0;
-            while (i < queue.Count)
-            {
-                if (!queue.TryDequeue(out Elements.Geometry.BoundedCurve next)) continue;
-                if (segments.Last().End.IsAlmostEqualTo(next.Start))
-                {
-                    segments.Add(next);
-                }
-                else if (segments.Last().End.IsAlmostEqualTo(next.End))
-                {
-                    if (next is Elements.Geometry.Line line) segments.Add(line.Reversed());
-                    else if (next is Elements.Geometry.Arc arc) segments.Add(arc.Reversed());
-                    // else throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
-                }
-                else if (segments.First().Start.IsAlmostEqualTo(next.Start))
-                {
-                    if (next is Elements.Geometry.Line line) segments.Insert(0, line.Reversed());
-                    else if (next is Elements.Geometry.Arc arc) segments.Insert(0, arc.Reversed());
-                    // else throw new NotImplementedException("Error: Can only sort Line and Arc curve types.");
-                }
-                else if (segments.First().Start.IsAlmostEqualTo(next.End))
-                {
-                    segments.Insert(0, next);
-                }
-                else
-                {
-                    queue.Enqueue(next);
-                    i++;
-                }
-            }
-            var polycurve = new Elements.Geometry.IndexedPolycurve(segments);
-
-            polycurves.Add(new IndexedPolycurve(segments));
+            if (nodes.ContainsKey(segment.End.TolerancePoint())) nodes[segment.End.TolerancePoint()].Add(segment);
+            else nodes.Add(segment.End.TolerancePoint(), new List<Elements.Geometry.BoundedCurve> { segment });
         }
-        return polycurves;
+        Console.WriteLine("Nodes: \n" + string.Join("\n", nodes.Select(node => node.Key.ToLongString() + ": " + string.Join(" | ", node.Value.Select(s => s.ToLongString())))));
+        Console.WriteLine("\n");
+
+        if (nodes.Values.Any(node => node.Count > 2)) // If more than two segments meet at a point, we can't join the segments into a singular polycurve.
+        {
+            Console.WriteLine("Error: Unable to join segments. More than two segments meet at a point.");
+            polyCurve = null;
+            return false;
+        }
+
+        var termini = nodes.Where(node => node.Value.Count == 1);
+        var terminiCount = termini.Count();
+        if (terminiCount > 2) // If there are more than two termini, we can't join the segments into a singular polycurve.
+        {
+            Console.WriteLine("Error: Unable to join segments. More than two termini found.");
+            polyCurve = null;
+            return false;
+        }
+
+        var ordered = new List<BoundedCurve>();
+
+        if (terminiCount == 2) ordered.Add(termini.First(node => node.Key == node.Value.First().Start.TolerancePoint()).Value.First()); // Segments form an open polycurve. Choose first segment whose start is a node's key.
+        else if (terminiCount == 0) ordered.Add(nodes.Values.First().First()); // Segments form a closed polycurve. Choose any segment to start.
+        else throw new Exception("Error: Unable to determine polycurve start. Singular terminus found.");
+        nodes.Remove(ordered.Last().Start.TolerancePoint());
+
+        Console.WriteLine("Begin While Loop\n");
+        while (nodes.Count > 0)
+        {
+            var current = ordered.Last();
+            Console.WriteLine("Current: \n" + current.ToString());
+            Console.WriteLine("Nodes: \n" + string.Join("\n", nodes.Select(node => node.Key.ToString() + ": " + string.Join(" | ", node.Value.Select(s => s.ToString())))));
+            Console.WriteLine("Ordered: \n" + string.Join(", ", ordered.Select(s => s.ToString())));
+
+            var nexts = nodes[current.End.TolerancePoint()];
+            Console.WriteLine("Nexts: \t" + string.Join(" | ", nexts.Select(s => s.ToString())));
+
+            var next = nexts.First(curve => curve != current && curve.End.TolerancePoint() != current.Start.TolerancePoint()); // Get the next segment that isn't the current segment.
+            Console.WriteLine("Next pre-parsing: \t" + next.ToString());
+
+            if (next.End.IsAlmostEqualTo(current.End))
+            {
+                if (next is Elements.Geometry.Line line) next = line.Reversed();
+                else if (next is Elements.Geometry.Arc arc) next = arc.Reversed();
+            }
+            Console.WriteLine("Next post-parsing: \t" + next.ToString());
+
+            ordered.Add(next);
+            Console.WriteLine("Adding Next...");
+            nodes.Remove(next.Start.TolerancePoint());
+
+            Console.WriteLine("Nodes: \n" + string.Join("\n", nodes.Select(node => node.Key.ToString() + ": " + string.Join(" | ", node.Value.Select(s => s.ToString())))));
+            Console.WriteLine("Ordered: \n" + string.Join(", ", ordered.Select(s => s.ToString())));
+            Console.WriteLine("\n");
+        }
+
+        polyCurve = new IndexedPolycurve(ordered);
+        return true;
     }
 
     /// <summary>
